@@ -1,0 +1,270 @@
+
+<html lang="my">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hlaing Wai Lwin</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Myanmar',Arial;background:#f8fafc;margin:0;padding:16px;color:#111}
+    h1{font-size:20px;margin-bottom:12px}
+    .card{background:#fff;border-radius:10px;padding:14px;box-shadow:0 4px 14px rgba(0,0,0,0.06);margin:12px 0}
+    ul{padding:0;list-style:none;margin:0}
+    li{background:#fff;padding:14px;border-radius:10px;margin:10px 0;box-shadow:0 4px 14px rgba(0,0,0,0.06)}
+    .wifi{font-weight:600;font-size:15px}
+    .duration{margin-top:4px;color:#333}
+    .price{font-weight:700;color:#2563eb}
+    footer{margin-top:18px;font-size:13px;color:#555}
+    input[type=text],input[type=password],input[type=number]{width:100%;padding:10px;border-radius:8px;border:1px solid #d9e2ef}
+    button{padding:10px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;cursor:pointer;touch-action: manipulation;}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    .actions button{background:#ef4444}
+  </style>
+</head>
+<body>
+  <h1>Hlaing Wai Lwin</h1><!doctype
+
+  <!-- Customer View -->
+  <div id="customerView" class="card">
+    <h3>WiFi ဈေးစာရင်း</h3>
+    <ul id="priceList"></ul>
+    <footer>ဆက်သွယ်ရန် Kpay: <strong>09970573598</strong></footer>
+    <div style="margin-top:16px">
+      <button id="showLoginBtn" style="background:#10b981">Admin Login</button>
+    </div>
+  </div>
+
+  <!-- Login View -->
+  <div id="loginCard" class="card" style="display:none">
+    <h3>Admin Login</h3>
+    <label>Email</label>
+    <input id="email" type="text" placeholder="admin@example.com">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="password">
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button id="loginBtn">Login</button>
+      <button id="cancelLoginBtn" style="background:#6b7280">Cancel</button>
+    </div>
+    <p style="font-size:13px;color:#666">Default admin: <strong>chanyatewai2@gmail.com</strong> / <strong>Chan090</strong></p>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" class="card" style="display:none">
+    <h3>Manage WiFi Price List</h3>
+    <div style="margin:10px 0;padding:10px;background:#f0f7ff;border-radius:8px">
+      <label>WiFi Name</label>
+      <input id="wifiName" type="text" placeholder="ဥပမာ - ChitThe Oo">
+      <label>Duration (label)</label>
+      <input id="durationLabel" type="text" placeholder="30 မိနစ်">
+      <label>Price (Kyats)</label>
+      <input id="price" type="number" placeholder="500">
+      <div style="margin-top:10px">
+        <button id="addBtn">Add</button>
+        <button id="logoutBtn" style="background:#ef4444;margin-left:8px">Logout</button>
+      </div>
+    </div>
+
+    <table id="priceTable">
+      <thead>
+        <tr><th>WiFi Name</th><th>Duration</th><th>Price</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+// ===== Config =====
+const ADMIN_EMAIL = 'chanyatewai2@gmail.com';
+const ADMIN_PASSWORD = 'Chan090';
+const STORAGE_KEY = 'hwa_prices_v1';
+let data = [];
+let editingItemId = null;
+
+// ===== Functions =====
+function loadData(){ 
+  try{ 
+    const raw = localStorage.getItem(STORAGE_KEY); 
+    data = raw ? JSON.parse(raw) : []; 
+  }catch(e){ 
+    data = []; 
+  } 
+}
+
+function saveData(){ 
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); 
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function numberWithCommas(x) {
+  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function renderCustomer(){
+  const list = document.getElementById('priceList'); 
+  list.innerHTML='';
+  
+  if(data.length===0){ 
+    list.innerHTML='<li style="color:#666">ဈေးစာရင်း မရှိသေးပါ</li>'; 
+    return; 
+  }
+  
+  data.forEach(d=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<div class="wifi">${escapeHtml(d.wifi)}</div><div class="duration">${escapeHtml(d.duration)} — <span class="price">${numberWithCommas(d.price)} Ks</span></div>`;
+    list.appendChild(li);
+  });
+}
+
+function renderAdmin(){
+  const tbody=document.querySelector('#priceTable tbody'); 
+  tbody.innerHTML='';
+  
+  if(data.length===0){ 
+    tbody.innerHTML='<tr><td colspan="4" style="color:#666">No items yet</td></tr>'; 
+    return; 
+  }
+  
+  data.forEach(item=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${escapeHtml(item.wifi)}</td>
+      <td>${escapeHtml(item.duration)}</td>
+      <td>${numberWithCommas(item.price)}</td>
+      <td class="actions">
+        <button onclick="editItem('${item.id}')">Edit</button>
+        <button onclick="deleteItem('${item.id}')" style="margin-left:6px">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function addItem(){
+  const wifiInput = document.getElementById('wifiName');
+  const durationInput = document.getElementById('durationLabel');
+  const priceInput = document.getElementById('price');
+  
+  const wifi = wifiInput.value.trim();
+  const duration = durationInput.value.trim();
+  const price = parseInt(priceInput.value, 10);
+  
+  if(!wifi || !duration || !price || isNaN(price)){
+    alert('All fields are required and price must be a number');
+    return;
+  }
+  
+  if (editingItemId) {
+    // Update existing item
+    const index = data.findIndex(item => item.id === editingItemId);
+    if (index !== -1) {
+      data[index] = { id: editingItemId, wifi, duration, price };
+    }
+    editingItemId = null;
+    document.getElementById('addBtn').textContent = 'Add';
+  } else {
+    // Add new item
+    data.push({ id: Date.now().toString(), wifi, duration, price });
+  }
+  
+  saveData(); 
+  renderAdmin(); 
+  renderCustomer();
+  
+  // Clear input fields
+  wifiInput.value = '';
+  durationInput.value = '';
+  priceInput.value = '';
+}
+
+function editItem(id){
+  const item = data.find(item => item.id === id);
+  if (!item) return;
+  
+  document.getElementById('wifiName').value = item.wifi;
+  document.getElementById('durationLabel').value = item.duration;
+  document.getElementById('price').value = item.price;
+  
+  editingItemId = id;
+  document.getElementById('addBtn').textContent = 'Update';
+}
+
+function deleteItem(id){
+  if (!confirm('Are you sure you want to delete this item?')) return;
+  
+  data = data.filter(item => item.id !== id);
+  saveData();
+  renderAdmin();
+  renderCustomer();
+}
+
+function showLogin(){
+  document.getElementById('customerView').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'block';
+  document.getElementById('adminPanel').style.display = 'none';
+}
+
+function hideLogin(){
+  document.getElementById('customerView').style.display = 'block';
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'none';
+}
+
+function showAdminPanel(){
+  document.getElementById('customerView').style.display = 'none';
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'block';
+}
+
+function login(){
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  
+  if(email === ADMIN_EMAIL && password === ADMIN_PASSWORD){
+    showAdminPanel();
+  } else {
+    alert('Invalid email or password');
+  }
+}
+
+function logout(){
+  editingItemId = null;
+  document.getElementById('wifiName').value = '';
+  document.getElementById('durationLabel').value = '';
+  document.getElementById('price').value = '';
+  document.getElementById('addBtn').textContent = 'Add';
+  
+  document.getElementById('email').value = '';
+  document.getElementById('password').value = '';
+  
+  document.getElementById('customerView').style.display = 'block';
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'none';
+}
+
+// ===== Initialize =====
+document.addEventListener('DOMContentLoaded', function() {
+  loadData();
+  renderCustomer();
+  
+  // Event listeners
+  document.getElementById('showLoginBtn').addEventListener('click', showLogin);
+  document.getElementById('cancelLoginBtn').addEventListener('click', hideLogin);
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('addBtn').addEventListener('click', addItem);
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+  
+  // Allow login with Enter key
+  document.getElementById('password').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      login();
+    }
+  });
+});
+</script>
+</body>
+</html>
+item.id
